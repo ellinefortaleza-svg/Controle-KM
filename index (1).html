@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Controle PR</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icone-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1C2430">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Controle PR">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1F4; --paper:#FFFFFF; --ink:#1C2430; --muted:#5B6675; --line:#D5DBE2;
+  --taxi:#F5C518; --dark:#1C2430; --ok:#1F7A4D; --ok-bg:#E3F4EA; --pend:#9A6700; --pend-bg:#FFF4D6;
+  --danger:#B3261E; --field:#F7F9FB;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12161C; --paper:#1B212A; --ink:#E8ECF1; --muted:#9AA5B3; --line:#2E3744;
+    --dark:#0A0D11; --ok:#4CC38A; --ok-bg:#16332A; --pend:#F5C518; --pend-bg:#3A3212;
+    --danger:#FF8A80; --field:#232A34;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12161C; --paper:#1B212A; --ink:#E8ECF1; --muted:#9AA5B3; --line:#2E3744;
+  --dark:#0A0D11; --ok:#4CC38A; --ok-bg:#16332A; --pend:#F5C518; --pend-bg:#3A3212;
+  --danger:#FF8A80; --field:#232A34;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding:16px 14px 48px}
+h1,h2,.num{font-family:"Barlow Condensed","Arial Narrow",system-ui,sans-serif}
+h1{font-size:34px;font-weight:700;margin:4px 0 12px}
+h2{font-size:22px;font-weight:600;margin:0 0 10px}
+section{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:4px;font-weight:500}
+input,select{width:100%;font:inherit;font-size:19px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:11px 12px;min-height:50px}
+input:focus,select:focus,button:focus-visible{outline:3px solid var(--taxi);outline-offset:1px}
+.grid{display:grid;gap:12px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.grid > div{min-width:0}
+input,select{min-width:0;max-width:100%}
+input[type=date],input[type=time]{font-size:17px;padding:11px 8px}
+button{font:inherit;font-weight:600;font-size:17px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:12px 16px;min-height:50px;cursor:pointer}
+.btn-main{background:var(--taxi);color:#1C2430;border-color:var(--taxi);width:100%;margin-top:14px;font-size:19px}
+.btn-send{background:var(--ok);color:#fff;border-color:var(--ok)}
+.btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.btn-row button{flex:1 1 150px}
+
+/* Abas */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.tabs button{border:none;background:none;min-height:46px;font-size:18px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--dark);color:var(--taxi)}
+.panel[hidden]{display:none}
+
+.preview{margin-top:12px;background:var(--dark);border:3px solid var(--taxi);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;color:#C9D1DB}
+.preview .num{font-size:36px;font-weight:700;color:var(--taxi);line-height:1;font-variant-numeric:tabular-nums}
+.total{background:var(--dark);color:#C9D1DB;border:3px solid var(--taxi);border-radius:14px;padding:16px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:10px}
+.total span{display:block;font-size:13px}
+.total .num{font-size:30px;font-weight:700;color:#fff;line-height:1.05;font-variant-numeric:tabular-nums}
+.total .num.big{color:var(--taxi);font-size:34px}
+@media (max-width:480px){.total{grid-template-columns:1fr 1fr}.total .span2{grid-column:span 2}}
+
+/* Painel de recebimentos */
+.money{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.card{border-radius:14px;padding:14px;border:2px solid}
+.card span{display:block;font-size:14px;font-weight:500}
+.card .num{font-size:32px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.card small{display:block;font-size:14px;margin-top:2px}
+.card.pago{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.card.pend{background:var(--pend-bg);border-color:var(--pend);color:var(--pend)}
+.card.geral{grid-column:span 2;background:var(--dark);border-color:var(--taxi);color:#C9D1DB;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.card.geral .num{color:var(--taxi)}
+
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.row .h{font-weight:600;font-variant-numeric:tabular-nums}
+.row .k{color:var(--muted);font-size:15px}
+.row .v{font-family:"Barlow Condensed",sans-serif;font-size:21px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.row .acts{grid-column:1 / -1;display:flex;gap:16px}
+.lnk{background:none;border:none;padding:2px 0;min-height:auto;font-size:15px;font-weight:500;text-decoration:underline;color:var(--ink)}
+.lnk.del{color:var(--danger)}
+
+/* Login */
+.topo{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sair{min-height:40px;padding:6px 14px;font-size:15px}
+.sync{font-size:13px;color:var(--muted);margin:-8px 0 12px}
+/* Edição de viagem */
+.acts button{min-height:40px;padding:6px 14px;font-size:15px;flex:0 0 auto}
+.acts .b-alt{background:var(--paper)}
+.acts .b-del{background:var(--paper);color:var(--danger);border-color:var(--danger)}
+.edit{border:2px solid var(--taxi);border-radius:12px;padding:12px;margin:10px 0;background:var(--paper)}
+.edit h3{font-family:"Barlow Condensed",sans-serif;font-size:19px;margin:0 0 10px}
+.edit .ev{margin-top:10px;font-weight:600}
+.edit .btn-row button{flex:1 1 120px}
+.b-apagar{color:var(--danger);border-color:var(--danger);background:var(--paper)}
+.zerar{margin-top:18px;color:var(--danger);border-color:var(--danger);background:var(--paper);width:100%}
+/* Dias na consulta */
+.dia{border:1px solid var(--line);border-left:6px solid var(--pend);border-radius:12px;margin-top:10px;background:var(--field);overflow:hidden}
+.dia.pago{border-left-color:var(--ok)}
+.dia-top{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:12px;cursor:pointer;width:100%;text-align:left;background:none;border:none;border-radius:0;font-weight:400;min-height:auto}
+.dia-top .d{font-family:"Barlow Condensed",sans-serif;font-size:22px;font-weight:700}
+.dia-top .val{font-family:"Barlow Condensed",sans-serif;font-size:24px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.dia-top .info{color:var(--muted);font-size:15px}
+.tag{font-size:14px;font-weight:600;padding:2px 10px;border-radius:99px;justify-self:end}
+.tag.pago{background:var(--ok-bg);color:var(--ok)}
+.tag.pend{background:var(--pend-bg);color:var(--pend)}
+.dia-body{padding:0 12px 12px;border-top:1px solid var(--line)}
+.dia-body[hidden]{display:none}
+.pay{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:12px}
+.pay > div{flex:1 1 170px}
+.pay button{flex:1 1 150px}
+.btn-pagar{background:var(--ok);color:#fff;border-color:var(--ok)}
+.btn-desfazer{color:var(--danger)}
+.filtros{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.empty{color:var(--muted);text-align:center;padding:18px 8px;border:1px dashed var(--line);border-radius:12px;margin-top:10px}
+.warn{color:var(--danger);font-size:14px;margin-top:6px;min-height:1em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;font-weight:600;max-width:90%}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+@media print{
+  body{background:#fff;color:#000}
+  .tabs,#form,.btn-row,.acts,.pay,.toast,.filtros{display:none!important}
+  .dia-body[hidden]{display:block!important}
+  .total,.card{background:#fff!important;color:#000!important;border:1px solid #999!important}
+  .total .num,.card .num{color:#000!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topo"><h1>Controle PR</h1><button class="sair" id="btnSair" onclick="sair()" hidden>Sair</button></div>
+
+  <section id="login" hidden>
+    <h2>Entrar</h2>
+    <div class="grid" style="grid-template-columns:1fr">
+      <div><label for="lEmail">E-mail</label><input type="email" id="lEmail" autocomplete="username"></div>
+      <div><label for="lSenha">Senha</label><input type="password" id="lSenha" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()"></div>
+    </div>
+    <div class="warn" id="lWarn"></div>
+    <button class="btn-main" onclick="entrar()">Entrar</button>
+  </section>
+
+  <div id="app" hidden>
+  <p class="sync" id="sync">Conectando…</p>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabReg" aria-selected="true" onclick="aba('reg')">Registrar</button>
+    <button role="tab" id="tabCon" aria-selected="false" onclick="aba('con')">Consulta</button>
+  </div>
+
+  <!-- ============ REGISTRAR ============ -->
+  <div class="panel" id="pReg">
+    <section id="form">
+      <h2 id="tituloForm">Nova corrida</h2>
+      <div class="grid">
+        <div><label for="data">Data</label><input type="date" id="data"></div>
+        <div><label for="hora">Hora</label><input type="time" id="hora"></div>
+        <div><label for="km">Km rodado</label><input id="km" inputmode="decimal" placeholder="Ex.: 18,5"></div>
+        <div><label for="preco">Valor cobrado por km (R$)</label><input id="preco" inputmode="decimal" placeholder="Ex.: 3,50"></div>
+      </div>
+      <div class="preview" aria-live="polite">
+        <span>Valor desta corrida</span>
+        <span class="num" id="prev">R$ 0,00</span>
+      </div>
+      <div class="warn" id="warn"></div>
+      <button class="btn-main" id="btnSalvar" onclick="salvar()">Adicionar corrida</button>
+      <button id="btnCancelar" onclick="limpar()" style="display:none;width:100%;margin-top:10px">Cancelar edição</button>
+    </section>
+
+    <div class="total">
+      <div><span>Corridas do dia</span><div class="num" id="tQtd">0</div></div>
+      <div><span>Km do dia</span><div class="num" id="tKm">0</div></div>
+      <div class="span2"><span>Total do dia</span><div class="num big" id="tVal">R$ 0,00</div></div>
+    </div>
+
+    <section>
+      <h2 id="tituloDia">Corridas do dia</h2>
+      <div id="lista"></div>
+      <div class="btn-row">
+        <button class="btn-send" onclick="enviar()">Enviar o dia no WhatsApp</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ CONSULTA ============ -->
+  <div class="panel" id="pCon" hidden>
+    <div class="money">
+      <div class="card pago"><span>Já recebido</span><div class="num" id="cPagoV">R$ 0,00</div><small id="cPagoQ">0 corridas</small></div>
+      <div class="card pend"><span>A receber</span><div class="num" id="cPendV">R$ 0,00</div><small id="cPendQ">0 corridas</small></div>
+      <div class="card geral"><div><span>Total geral</span><small id="cGeralQ">0 dias · 0 corridas · 0 km</small></div><div class="num" id="cGeralV">R$ 0,00</div></div>
+    </div>
+
+    <section>
+      <h2>Viagens por dia</h2>
+      <div class="filtros">
+        <div><label for="fMes">Mês</label><select id="fMes"></select></div>
+        <div><label for="fStatus">Situação</label>
+          <select id="fStatus"><option value="todos">Todos os dias</option><option value="pend">A receber</option><option value="pago">Já pagos</option></select></div>
+      </div>
+      <div id="consulta"></div>
+      <div class="btn-row"><button onclick="window.print()">Imprimir / salvar PDF</button></div>
+      <button class="zerar" onclick="confirmar(this,'Toque de novo para apagar TUDO',zerarTudo)">Apagar todos os registros</button>
+    </section>
+  </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ===== COLE AQUI A CONFIGURAÇÃO DO SEU PROJETO FIREBASE ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDHbK1YSMhTZjhNGC6MAXxdtTCEYa6uTGY",
+  authDomain: "controletaxis.firebaseapp.com",
+  projectId: "controletaxis",
+  storageBucket: "controletaxis.firebasestorage.app",
+  messagingSenderId: "729926198830",
+  appId: "1:729926198830:web:18167a554e905e749aa1bf"
+};
+/* ============================================================ */
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), fs=firebase.firestore();
+fs.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+const PKEY='controle-pr-preco';
+let corridas=[], pagos={}, editando=null, abertos={}, editRow=null, uid=null, unsubs=[];
+const refC=()=>fs.collection('users').doc(uid).collection('corridas');
+const refP=()=>fs.collection('users').doc(uid).collection('pagos');
+function erro(e){console.error(e);toast('Erro ao salvar. Confira a internet e tente de novo.')}
+const $=id=>document.getElementById(id);
+const num=v=>{v=String(v??'').trim().replace(/\s/g,'');if(!v)return NaN;if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');return parseFloat(v)};
+const brl=v=>(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const kmF=v=>(v||0).toLocaleString('pt-BR',{maximumFractionDigits:2});
+const dataBR=d=>d?d.split('-').reverse().join('/'):'';
+const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const mesNome=m=>{const[a,b]=m.split('-');return MESES[+b-1]+' de '+a};
+const semana=d=>['domingo','segunda','terça','quarta','quinta','sexta','sábado'][new Date(d+'T12:00').getDay()];
+const agora=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());const s=d.toISOString();return{data:s.slice(0,10),hora:s.slice(11,16)}};
+const valorDe=c=>Math.round(c.km*c.preco*100)/100;
+const plural=(n,s,p)=>n+' '+(n===1?s:p);
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2200)}
+function load(){try{$('preco').value=localStorage.getItem(PKEY)||''}catch(e){}}
+
+/* ---------- LOGIN ---------- */
+function entrar(){
+  const e=$('lEmail').value.trim(),s=$('lSenha').value;$('lWarn').textContent='';
+  if(!e||!s){$('lWarn').textContent='Informe e-mail e senha.';return}
+  auth.signInWithEmailAndPassword(e,s).catch(()=>{$('lWarn').textContent='E-mail ou senha incorretos.'});
+}
+function sair(){auth.signOut()}
+function statusSync(meta){$('sync').textContent=meta.hasPendingWrites||meta.fromCache?'Salvo no celular · envia para a nuvem quando tiver internet':'Tudo salvo na nuvem'}
+auth.onAuthStateChanged(u=>{
+  unsubs.forEach(f=>f());unsubs=[];corridas=[];pagos={};editRow=null;
+  $('login').hidden=!!u;$('app').hidden=!u;$('btnSair').hidden=!u;
+  if(!u){uid=null;return}
+  uid=u.uid;render();renderConsulta();
+  unsubs.push(refC().onSnapshot({includeMetadataChanges:true},sn=>{
+    corridas=sn.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora));
+    statusSync(sn.metadata);render();renderConsulta();
+  },erro));
+  unsubs.push(refP().onSnapshot(sn=>{pagos={};sn.forEach(d=>{pagos[d.id]=d.data().pagoEm});render();renderConsulta()},erro));
+});
+
+function confirmar(btn,msg,acao){
+  if(btn.dataset.armado==='1'){clearTimeout(btn._t);acao();return}
+  const orig=btn.textContent;btn.dataset.armado='1';btn.textContent=msg;btn.style.fontWeight='700';
+  btn._t=setTimeout(()=>{btn.dataset.armado='';btn.textContent=orig;btn.style.fontWeight=''},3500);
+}
+function aba(q){const r=q==='reg';$('pReg').hidden=!r;$('pCon').hidden=r;$('tabReg').setAttribute('aria-selected',r);$('tabCon').setAttribute('aria-selected',!r);if(!r)renderConsulta();window.scrollTo({top:0})}
+
+/* ---------- REGISTRAR ---------- */
+function atualizaPrev(){const k=num($('km').value),p=num($('preco').value);$('prev').textContent=brl(isNaN(k)||isNaN(p)?0:Math.round(k*p*100)/100)}
+function limpar(manterData){const a=agora();if(!manterData)$('data').value=a.data;$('hora').value=a.hora;$('km').value='';editando=null;$('tituloForm').textContent='Nova corrida';$('btnSalvar').textContent='Adicionar corrida';$('btnCancelar').style.display='none';$('warn').textContent='';atualizaPrev()}
+function salvar(){
+  const c={data:$('data').value,hora:$('hora').value,km:num($('km').value),preco:num($('preco').value)};
+  if(!c.data||!c.hora){$('warn').textContent='Informe a data e a hora.';return}
+  if(isNaN(c.km)||c.km<=0){$('warn').textContent='Informe o km rodado.';return}
+  if(isNaN(c.preco)||c.preco<=0){$('warn').textContent='Informe o valor cobrado por km.';return}
+  try{localStorage.setItem(PKEY,$('preco').value)}catch(e){}
+  refC().add(c).catch(erro);
+  toast('Corrida registrada');limpar(true);
+}
+function editar(i){editRow=i;render();renderConsulta();const e=document.querySelector('.panel:not([hidden]) .edit');if(e)e.scrollIntoView({behavior:'smooth',block:'center'})}
+function excluir(i,btn){confirmar(btn,'Toque de novo para apagar',()=>excluirOk(i))}
+function excluirOk(i){const id=corridas[i].id;editRow=null;refC().doc(id).delete().catch(erro);toast('Viagem apagada')}
+
+function linhas(idx){return idx.map(i=>{const c=corridas[i];
+  if(editRow===i)return `<div class="edit">
+    <h3>Alterar viagem</h3>
+    <div class="grid">
+      <div><label for="e-data">Data</label><input type="date" id="e-data" value="${c.data}"></div>
+      <div><label for="e-hora">Hora</label><input type="time" id="e-hora" value="${c.hora}"></div>
+      <div><label for="e-km">Km rodado</label><input id="e-km" inputmode="decimal" value="${String(c.km).replace('.',',')}" oninput="prevEd()"></div>
+      <div><label for="e-preco">Valor por km (R$)</label><input id="e-preco" inputmode="decimal" value="${String(c.preco).replace('.',',')}" oninput="prevEd()"></div>
+    </div>
+    <div class="ev">Novo valor: <span id="e-prev">${brl(valorDe(c))}</span></div>
+    <div class="warn" id="e-warn"></div>
+    <div class="btn-row">
+      <button class="btn-main" style="margin:0" onclick="salvarEdicao(${i})">Salvar alterações</button>
+      <button onclick="cancelarEdicao()">Cancelar</button>
+      <button class="b-apagar" onclick="excluir(${i},this)">Apagar viagem</button>
+    </div></div>`;
+  return `<div class="row"><span class="h">${c.hora}</span><span class="k">${kmF(c.km)} km × ${brl(c.preco)}</span><span class="v">${brl(valorDe(c))}</span>
+  <div class="acts"><button class="b-alt" onclick="editar(${i})">Alterar</button><button class="b-del" onclick="excluir(${i},this)">Apagar</button></div></div>`}).join('')}
+function prevEd(){const k=num($('e-km').value),p=num($('e-preco').value);$('e-prev').textContent=brl(isNaN(k)||isNaN(p)?0:Math.round(k*p*100)/100)}
+function salvarEdicao(i){
+  const c={data:$('e-data').value,hora:$('e-hora').value,km:num($('e-km').value),preco:num($('e-preco').value)};
+  const w=$('e-warn');
+  if(!c.data||!c.hora){w.textContent='Informe a data e a hora.';return}
+  if(isNaN(c.km)||c.km<=0){w.textContent='Informe o km rodado.';return}
+  if(isNaN(c.preco)||c.preco<=0){w.textContent='Informe o valor por km.';return}
+  const id=corridas[i].id;editRow=null;
+  refC().doc(id).set(c).catch(erro);render();renderConsulta();toast('Viagem alterada');
+}
+function cancelarEdicao(){editRow=null;render();renderConsulta()}
+
+function render(){
+  const d=$('data').value;const idx=[];corridas.forEach((c,i)=>{if(c.data===d)idx.push(i)});
+  let tk=0,tv=0;idx.forEach(i=>{tk+=corridas[i].km;tv+=valorDe(corridas[i])});
+  $('tQtd').textContent=idx.length;$('tKm').textContent=kmF(tk);$('tVal').textContent=brl(tv);
+  $('tituloDia').textContent='Corridas de '+dataBR(d)+(pagos[d]?' (pago)':'');
+  $('lista').innerHTML=idx.length?linhas(idx):'<div class="empty">Nenhuma corrida nesta data.</div>';
+}
+
+function enviar(){
+  const d=$('data').value;const cs=corridas.filter(c=>c.data===d);
+  if(!cs.length){toast('Nenhuma corrida em '+dataBR(d));return}
+  let dk=0,dv=0,s=`*Controle PR – ${dataBR(d)}*\n\n`;
+  cs.forEach((c,i)=>{dk+=c.km;dv+=valorDe(c);s+=`${i+1}) ${c.hora} | ${kmF(c.km)} km × ${brl(c.preco)} = ${brl(valorDe(c))}\n`});
+  s+=`\nKm total: ${kmF(dk)}\n*Total do dia: ${brl(dv)}*`;
+  const w=window.open('https://wa.me/?text='+encodeURIComponent(s),'_blank');
+  if(!w&&navigator.clipboard)navigator.clipboard.writeText(s).then(()=>toast('Resumo copiado. Cole no WhatsApp.'));
+}
+
+/* ---------- CONSULTA ---------- */
+function porDia(){const m={};corridas.forEach((c,i)=>{(m[c.data]=m[c.data]||[]).push(i)});return m}
+function somaDia(idx){let k=0,v=0;idx.forEach(i=>{k+=corridas[i].km;v+=valorDe(corridas[i])});return{k,v,q:idx.length}}
+
+function preencherMeses(){
+  const sel=$('fMes'),atual=sel.value;const ms=[...new Set(corridas.map(c=>c.data.slice(0,7)))].sort().reverse();
+  sel.innerHTML='<option value="todos">Todos os meses</option>'+ms.map(m=>`<option value="${m}">${mesNome(m)}</option>`).join('');
+  sel.value=[...sel.options].some(o=>o.value===atual)?atual:'todos';
+}
+
+function renderConsulta(){
+  preencherMeses();
+  const dias=porDia();
+  // Totais gerais (todos os dias)
+  let pv=0,pq=0,nv=0,nq=0,gk=0;
+  Object.keys(dias).forEach(d=>{const s=somaDia(dias[d]);gk+=s.k;if(pagos[d]){pv+=s.v;pq+=s.q}else{nv+=s.v;nq+=s.q}});
+  $('cPagoV').textContent=brl(pv);$('cPagoQ').textContent=plural(pq,'corrida recebida','corridas recebidas');
+  $('cPendV').textContent=brl(nv);$('cPendQ').textContent=plural(nq,'corrida','corridas')+' a receber';
+  $('cGeralV').textContent=brl(pv+nv);$('cGeralQ').textContent=`${plural(Object.keys(dias).length,'dia','dias')} · ${plural(pq+nq,'corrida','corridas')} · ${kmF(gk)} km`;
+
+  const fm=$('fMes').value,fs=$('fStatus').value;
+  const lista=Object.keys(dias).sort().reverse().filter(d=>(fm==='todos'||d.startsWith(fm))&&(fs==='todos'||(fs==='pago'?!!pagos[d]:!pagos[d])));
+  const C=$('consulta');
+  if(!lista.length){C.innerHTML='<div class="empty">'+(corridas.length?'Nenhum dia com esse filtro.':'Nenhuma corrida registrada ainda. Use a aba Registrar.')+'</div>';return}
+  let fk=0,fv=0,fq=0;
+  C.innerHTML=lista.map(d=>{
+    const s=somaDia(dias[d]);fk+=s.k;fv+=s.v;fq+=s.q;const pg=pagos[d];
+    return `<div class="dia ${pg?'pago':''}">
+      <button class="dia-top" onclick="toggleDia('${d}')" aria-expanded="${!!abertos[d]}">
+        <span class="d">${dataBR(d)} <span style="font-size:16px;font-weight:500;color:var(--muted)">${semana(d)}</span></span>
+        <span class="val">${brl(s.v)}</span>
+        <span class="info">${plural(s.q,'corrida','corridas')} · ${kmF(s.k)} km</span>
+        <span class="tag ${pg?'pago':'pend'}">${pg?'Pago em '+dataBR(pg):'A receber'}</span>
+      </button>
+      <div class="dia-body" ${abertos[d]?'':'hidden'}>
+        ${linhas(dias[d])}
+        <div class="pay">${pg
+          ?`<button class="btn-desfazer" onclick="desmarcar('${d}',this)">Desmarcar pagamento</button>`
+          :`<div><label for="pg-${d}">Data do pagamento</label><input type="date" id="pg-${d}" value="${agora().data}"></div><button class="btn-pagar" onclick="marcarPago('${d}')">Marcar como pago</button>`}
+        </div>
+      </div></div>`}).join('')
+    +`<div class="row" style="border:none;margin-top:8px"><span class="h">Total</span><span class="k">${plural(lista.length,'dia','dias')} · ${plural(fq,'corrida','corridas')} · ${kmF(fk)} km</span><span class="v">${brl(fv)}</span></div>`;
+}
+async function zerarTudo(){
+  try{
+    const docs=[...(await refC().get()).docs,...(await refP().get()).docs];
+    for(let i=0;i<docs.length;i+=400){const b=fs.batch();docs.slice(i,i+400).forEach(d=>b.delete(d.ref));await b.commit()}
+    abertos={};editRow=null;limpar();toast('Todos os registros foram apagados');
+  }catch(e){erro(e)}
+}
+function toggleDia(d){abertos[d]=!abertos[d];renderConsulta()}
+function marcarPago(d){const v=$('pg-'+d).value||agora().data;refP().doc(d).set({pagoEm:v}).catch(erro);toast('Dia '+dataBR(d)+' marcado como pago')}
+function desmarcar(d,btn){confirmar(btn,'Toque de novo para desmarcar',()=>desmarcarOk(d))}
+function desmarcarOk(d){abertos[d]=true;refP().doc(d).delete().catch(erro);toast('Pagamento desmarcado')}
+
+load();limpar();
+['km','preco'].forEach(id=>$(id).addEventListener('input',atualizaPrev));
+$('data').addEventListener('change',render);
+$('fMes').addEventListener('change',renderConsulta);$('fStatus').addEventListener('change',renderConsulta);
+</script>
+</body>
+</html>
